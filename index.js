@@ -188,4 +188,251 @@ Util.moneyFormat = function (num) {
   num = num.replace(re, "$1,$2");
   return num;
 }
+
+
+
+
+// 处理操作localStorage时的错误并给出提示
+const localStorageErrHandler = (e) => {
+    let errMsg = '';
+    let errName = e.name.toLowerCase() || '';
+    let errNumber = e.number.toString() || ''
+    switch (errName) {
+        case 'quotaexceedederror':
+            // 本地存储满时，不提示直接清空localStorage，并执行回调对象中的回调函数
+            errMsg = ''
+            localStorage.clear()
+            break
+        case 'error':
+            if (errNumber === '-2147024891') {
+                // 高版本内核IE10禁止访问localStorage
+                errMsg = '访问localStorage本地存储失败，IE浏览器请取消保护模式（设置路径：工具 -> Internal选项 -> 安全 -> 取消勾选启用保护模式）'
+            } else {
+                errMsg = '操作浏览器本地存储localStorage时发生意外错误'
+            }
+            break
+        default:
+            errMsg = '操作浏览器本地存储localStorage时发生意外错误'
+            break
+    }
+    if (errMsg) {
+        MessageBox.alert(errMsg, '确定', {
+            confirmButtonText: '确定'
+        }).then(() => {})
+    }
+}
+
+// 操作localStrage报错时如果有传回调对象则执行回调函数
+const localStorageErrCallBack = (e, callBackObj) => {
+    if (callBackObj && callBackObj.errName.toLowerCase().toString() === e.name.toLowerCase().toString() && callBackObj.fn) {
+        callBackObj.fn()
+    }
+}
+
+// 从localStorage取值
+export function getLocalStorage(key, callBackObj) {
+    let value = ''
+    try {
+        value = window.localStorage.getItem(key)
+    } catch (e) {
+        localStorageErrHandler(e)
+        localStorageErrCallBack(e, callBackObj)
+    }
+    return value
+}
+
+// 给localStorage赋值
+export function setLocalStorage(key, value, callBackObj) {
+    try {
+        window.localStorage.setItem(key, value)
+    } catch (e) {
+        localStorageErrHandler(e)
+        localStorageErrCallBack(e, callBackObj)
+    }
+}
+
+// 给localStorage去值
+export function removeLocalStorage(key, callBackObj) {
+    try {
+        window.localStorage.removeItem(key)
+    } catch (e) {
+        localStorageErrHandler(e)
+        localStorageErrCallBack(e, callBackObj)
+    }
+}
+
+// 转义 - 防XSS攻击
+export function escapeHtml(str = '') {
+    return str.replace(/&/g, '&amp;').replace(/\//g, '&#x2F;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
+}
+
+// 反转义
+export function unescapeHtml(str = '') {
+    return str.replace(/&amp;/g, '&').replace(/&#x2F;/g, '/').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, '\'')
+}
+
+/**
+ * 浏览器窗口resize事件回调，调整窗口缩放
+ * @param docWidth: 浏览器窗口宽度
+ * @param docHeight: 浏览器窗口高度
+ */
+export function windowResize(docWidth, docHeight) {
+    const designWidth = 1920
+        // const designHeight = 1080
+    let docScale = docHeight / docWidth
+    let els = document.querySelectorAll('body')
+    let scale = docWidth / designWidth
+        // let scaleX = docWidth / designWidth
+        // let scaleY = docHeight / designHeight
+    convertArray(els).forEach(function(el) {
+        extend(el.style, {
+            width: designWidth + 'px',
+            height: (docScale * designWidth) + 'px',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            transformOrigin: '0 0',
+            webkitTransformOrigin: '0 0',
+            transform: 'scale(' + scale + ')',
+            webkitTransform: 'scale(' + scale + ')',
+            overflow: 'auto',
+            webkitOverflowScrolling: 'touch'
+        })
+    })
+}
+
+function convertArray(arrayLike) {
+    return Array.prototype.slice.call(arrayLike, 0)
+}
+
+function extend() {
+    var args = Array.prototype.slice.call(arguments, 0)
+    return args.reduce(function(prev, now) {
+        for (var key in now) {
+            if (now.hasOwnProperty && now.hasOwnProperty(key)) {
+                prev[key] = now[key]
+            }
+        }
+        return prev
+    })
+}
+
+// Delays a function for the given number of milliseconds, and then calls
+// it with the arguments supplied.
+const _delay = restArguments(function(func, wait, args) {
+    return setTimeout(function() {
+        return func.apply(null, args)
+    }, wait)
+})
+
+// Some functions take a variable number of arguments, or a few expected
+// arguments at the beginning and then a variable number of values to operate
+// on. This helper accumulates all remaining arguments past the function’s
+// argument length (or an explicit `startIndex`), into an array that becomes
+// the last argument. Similar to ES6’s "rest parameter".
+function restArguments(func, startIndex) {
+    startIndex = startIndex == null ? func.length - 1 : +startIndex
+    return function() {
+        let length = Math.max(arguments.length - startIndex, 0)
+        let rest = Array(length)
+        let index = 0
+        for (; index < length; index++) {
+            rest[index] = arguments[index + startIndex]
+        }
+        switch (startIndex) {
+            case 0:
+                return func.call(this, rest)
+            case 1:
+                return func.call(this, arguments[0], rest)
+            case 2:
+                return func.call(this, arguments[0], arguments[1], rest)
+        }
+        var args = Array(startIndex + 1)
+        for (index = 0; index < startIndex; index++) {
+            args[index] = arguments[index]
+        }
+        args[startIndex] = rest
+        return func.apply(this, args)
+    }
+}
+
+// Returns a function, that, as long as it continues to be invoked, will not
+// be triggered. The function will be called after it stops being called for
+// N milliseconds. If `immediate` is passed, trigger the function on the
+// leading edge, instead of the trailing.
+export function debounce(func, wait, immediate) {
+    var timeout, result
+
+    var later = function(context, args) {
+        timeout = null
+        if (args) result = func.apply(context, args)
+    }
+
+    var debounced = restArguments(function(args) {
+        if (timeout) clearTimeout(timeout)
+        if (immediate) {
+            var callNow = !timeout
+            timeout = setTimeout(later, wait)
+            if (callNow) result = func.apply(this, args)
+        } else {
+            timeout = _delay(later, wait, this, args)
+        }
+
+        return result
+    })
+
+    debounced.cancel = function() {
+        clearTimeout(timeout)
+        timeout = null
+    }
+
+    return debounced
+}
+
+// Returns a function, that, when invoked, will only be triggered at most once
+// during a given window of time. Normally, the throttled function will run
+// as much as it can, without ever going more than once per `wait` duration;
+// but if you'd like to disable the execution on the leading edge, pass
+// `{leading: false}`. To disable execution on the trailing edge, ditto.
+export function throttle(func, wait, options) {
+    let timeout, context, args, result
+    let previous = 0
+    if (!options) options = {}
+
+    var later = function() {
+        previous = options.leading === false ? 0 : new Date().getTime()
+        timeout = null
+        result = func.apply(context, args)
+        if (!timeout) context = args = null
+    }
+
+    var throttled = function() {
+        var now = new Date().getTime()
+        if (!previous && options.leading === false) previous = now
+        var remaining = wait - (now - previous)
+        context = this
+        args = arguments
+        if (remaining <= 0 || remaining > wait) {
+            if (timeout) {
+                clearTimeout(timeout)
+                timeout = null
+            }
+            previous = now
+            result = func.apply(context, args)
+            if (!timeout) context = args = null
+        } else if (!timeout && options.trailing !== false) {
+            timeout = setTimeout(later, remaining)
+        }
+        return result
+    }
+
+    throttled.cancel = function() {
+        clearTimeout(timeout)
+        previous = 0
+        timeout = context = args = null
+    }
+
+    return throttled
+}
+
 export default new Util()
