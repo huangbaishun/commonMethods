@@ -435,4 +435,42 @@ export function throttle(func, wait, options) {
     return throttled
 }
 
+// y => 2018，m => 2018-06，d => 28, yyyy-mm-dd => 2018-06-06, yyyy-mm => 2018-06, all => 2018-06-06 09:06:04
+export function dateFormat(data, state = 'yyyy-mm') {
+    const isIE = (!!window.ActiveXObject || 'ActiveXObject' in window)
+    if (isIE) {
+        data = data.replace(/-/g, '/').replace(/T/g, ' ').slice(0, 19)
+        if (data.length <= 9) {
+            data = data.slice(0, 7) + '/01'
+        }
+        data = (new Date(data)).getTime() + 8 * 60 * 60 * 1000
+    }
+    const date = new Date(data)
+
+    const y = date.getFullYear()
+    const m = (date.getMonth() + 1) > 9 ? (date.getMonth() + 1) : '0' + (date.getMonth() + 1)
+    const d = date.getDate() > 9 ? date.getDate() : '0' + date.getDate()
+    const time = (date.getHours() > 9 ? date.getHours() : '0' + date.getHours()) + ':' +
+        (date.getMinutes() > 9 ? date.getMinutes() : '0' + date.getMinutes()) + ':' +
+        (date.getSeconds() > 9 ? date.getSeconds() : '0' + date.getSeconds())
+    if (state === 'y') {
+        return y
+    }
+    if (state === 'm') {
+        return m
+    }
+    if (state === 'd') {
+        return d
+    }
+    if (state === 'yyyy-mm-dd') {
+        return y + '-' + m + '-' + d
+    }
+    if (state === 'yyyy-mm') {
+        return y + '-' + m
+    }
+    if (state === 'all') {
+        return y + '-' + m + '-' + d + ' ' + time
+    }
+}
+
 export default new Util()
